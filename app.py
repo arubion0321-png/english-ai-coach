@@ -35,29 +35,36 @@ model = genai.GenerativeModel(
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 過去メッセージの描画
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# ----------------------------------------------------
+# 1. 質問入力欄（上側）
+# ----------------------------------------------------
+user_text = st.text_area("💬 質問や英文を入力してね", placeholder="ここにメッセージを入力...", height=100)
 
-# 1. チャット入力欄（上側）
-prompt = st.chat_input("質問や英文を入力してね...")
-
+# ----------------------------------------------------
 # 2. 画像アップロード欄（下側）
-uploaded_file = st.file_uploader("手書き作文の写真をアップロード（任意）", type=["jpg", "jpeg", "png"])
+# ----------------------------------------------------
+uploaded_file = st.file_uploader("📷 手書き作文の写真をアップロード（任意）", type=["jpg", "jpeg", "png"])
 
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
+# 送信ボタン
+if st.button("AIコーチに送信する", type="primary"):
+    if user_text:
+        st.session_state.messages.append({"role": "user", "content": user_text})
+        
         with st.spinner("AIコーチが考え中..."):
             if uploaded_file and len(st.session_state.messages) == 1:
                 image = Image.open(uploaded_file)
-                response = model.generate_content([prompt, image])
+                response = model.generate_content([user_text, image])
             else:
                 response = model.generate_content([m["content"] for m in st.session_state.messages])
             
-            st.markdown(response.text)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
+
+# ----------------------------------------------------
+# 3. 会話の履歴表示（一番下に表示）
+# ----------------------------------------------------
+if st.session_state.messages:
+    st.write("---")
+    st.subheader("🗣️ 会話の履歴")
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
