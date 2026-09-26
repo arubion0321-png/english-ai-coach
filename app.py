@@ -1,32 +1,51 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 
-st.set_page_config(page_title="APIキー動作チェック", page_icon="🔑")
-st.title("🔑 APIキー動作テスト")
+# 画面設定
+st.set_page_config(page_title="英語スピーチ AIコーチ", page_icon="📝")
+st.title("📝 英語スピーチ AIコーチ")
+st.write("テーマの相談から英文のヒント添削まで、AIコーチと一緒にスピーチを作ろう！")
 
-# 1. Secretsからキーの取得テスト
+# SecretsからAPIキーを取得
 api_key = st.secrets.get("GEMINI_API_KEY")
 
 if not api_key:
-    st.error("❌ エラー: Streamlit Cloudの Secrets に 'GEMINI_API_KEY' が設定されていません。")
+    st.error("APIキー（GEMINI_API_KEY）がSecretsに設定されていません。")
     st.stop()
-else:
-    st.success(f"⭕ Secretsの読み込み成功！（キーの先頭: {api_key[:5]}...）")
 
-# 2. Gemini APIへの接続テスト
-if st.button("APIキーの通信テストを実行する", type="primary"):
-    with st.spinner("Google Gemini に接続テスト中..."):
-        try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            
-            # 超軽量なテストメッセージを送信
-            response = model.generate_content("Hello")
-            
-            st.balloons() # 成功のお祝いアニメーション
-            st.success("🎉 APIキーは正常に機能しています！Geminiからの応答も受信できました！")
-            st.info(f"AIからのテスト応答: {response.text}")
-            
-        except Exception as e:
-            st.error("❌ APIキーまたは通信でエラーが発生しました。")
-            st.code(str(e))
+# 新しいGeminiクライアントの初期化
+client = genai.Client(api_key=api_key)
+
+system_instruction = """
+あなたは中学校の英語学習をサポートする優しく熱心なAIコーチです。
+
+【役割とルール】
+1. 生徒からの質問（テーマ決め、構成、作文添削）に親身に応答してください。
+2. 構成や表現を聞かれた場合は「3つの異なるアプローチ」の選択肢と、中2文法の簡単な解説を提示してください。
+3. 作文添削では絶対に正解の全文を与えず、ヒントと褒め言葉だけを渡してください。
+4. 簡潔で親しみやすい回答を心がけてください。
+"""
+
+# 入力フォーム
+with st.form(key="speech_form"):
+    user_text = st.text_area("💬 質問や英文を入力してね", placeholder="ここにメッセージを入力...", height=120)
+    submit_button = st.form_submit_button("AIコーチに送信する", type="primary")
+
+if submit_button:
+    if not user_text:
+        st.warning("メッセージを入力してください。")
+    else:
+        with st.spinner("AIコーチが回答を作成中...（数秒でお答えします）"):
+            try:
+                # 新ライブラリによる高速呼び出し
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=user_text,
+                    config={"system_instruction": system_instruction}
+                )
+                
+                st.success("AIコーチからのアドバイス：")
+                st.markdown(response.text)
+                
+            except Exception as e:
+                st.error(f"エラーが発生しました: {e}")
