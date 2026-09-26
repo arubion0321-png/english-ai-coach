@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 from google import genai
 from google.genai import types
 
@@ -8,14 +9,17 @@ st.title("📝 英語スピーチ AIコーチ")
 st.write("テーマの相談から英文のヒント添削まで、AIコーチと一緒にスピーチを作ろう！")
 
 # SecretsからAPIキーを取得
-api_key = st.secrets.get("GEMINI_API_KEY")
+raw_api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-if not api_key:
-    st.error("APIキー（GEMINI_API_KEY）がSecretsに設定されていません。")
+# キーから非ASCII文字（全角スペース等）を物理的に除去
+clean_api_key = re.sub(r'[^\x00-\x7F]+', '', str(raw_api_key)).strip()
+
+if not clean_api_key:
+    st.error("APIキー（GEMINI_API_KEY）が正しく読み込めません。Secretsを確認してください。")
     st.stop()
 
-# 文字コードエラーを防ぐため文字列型を確実に指定してクライアント作成
-client = genai.Client(api_key=str(api_key).strip())
+# 安全なキーでクライアントを初期化
+client = genai.Client(api_key=clean_api_key)
 
 system_instruction = """
 あなたは中学校の英語学習をサポートする優しく熱心なAIコーチです。
@@ -38,14 +42,14 @@ if submit_button:
     else:
         with st.spinner("AIコーチが回答を作成中...（数秒でお答えします）"):
             try:
-                # 日本語（UTF-8）を安全に処理する設定を追加
                 config = types.GenerateContentConfig(
                     system_instruction=system_instruction
                 )
                 
+                # 最新の推奨モデルを指定
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=str(user_text),
+                    model="gemini-3.8-flash",
+                    contents=user_text,
                     config=config
                 )
                 
