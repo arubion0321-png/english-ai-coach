@@ -40,9 +40,9 @@ if submit_button:
     else:
         with st.spinner("AIコーチが回答を作成中...（数秒お待ちください）"):
             try:
-                # 標準的なモデル名に指定
+                # 汎用的なモデル名で指定
                 model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash-latest",
+                    model_name="gemini-1.5-flash",
                     system_instruction=system_instruction
                 )
 
@@ -61,4 +61,5 @@ if submit_button:
                 st.markdown(response.text)
                 
             except Exception as e:
-                st.error(f"エラーが発生しました: {e}")
+                # 万が一止まった場合にエラー内容を画面に出す
+                st.error(f"APIエラーが発生しました: {type(e).__name__} - {e}")
