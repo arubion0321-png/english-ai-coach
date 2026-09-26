@@ -42,7 +42,7 @@ for message in st.session_state.messages:
 
 st.divider()
 
-# 2. 入力エリア（① 質問・メッセージ ➔ ② 写真ファイルの順）
+# 2. 入力エリア（メッセージ入力 ➔ 写真ファイル添付の順）
 with st.container():
     st.subheader("💬 AIコーチに相談・質問する")
     user_text = st.text_area("メッセージを入力してね（例：パターン3で書いてみたい！）", height=100, key="input_text")
@@ -95,8 +95,9 @@ if submit_button:
                 response_text = ""
                 for attempt in range(max_retries):
                     try:
+                        # モデル名を gemini-2.0-flash に更新
                         response = client.models.generate_content(
-                            model="gemini-1.5-flash",
+                            model="gemini-2.0-flash",
                             contents=contents,
                             config=config
                         )
