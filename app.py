@@ -1,5 +1,6 @@
 import streamlit as st
 import re
+import time
 from google import genai
 from google.genai import types
 
@@ -41,20 +42,30 @@ if submit_button:
         st.warning("メッセージを入力してください。")
     else:
         with st.spinner("AIコーチが回答を作成中...（数秒でお答えします）"):
-            try:
-                config = types.GenerateContentConfig(
-                    system_instruction=system_instruction
-                )
-                
-                # 最新の推奨モデルを指定
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=user_text,
-                    config=config
-                )
-                
-                st.success("AIコーチからのアドバイス：")
-                st.markdown(response.text)
-                
-            except Exception as e:
-                st.error(f"エラーが発生しました: {e}")
+            config = types.GenerateContentConfig(
+                system_instruction=system_instruction
+            )
+            
+            # サーバー混雑対策（自動リトライ処理）
+            max_retries = 3
+            success = False
+            
+            for attempt in range(max_retries):
+                try:
+                    # 最も安定している gemini-1.5-flash を使用
+                    response = client.models.generate_content(
+                        model="gemini-1.5-flash",
+                        contents=user_text,
+                        config=config
+                    )
+                    
+                    st.success("AIコーチからのアドバイス：")
+                    st.markdown(response.text)
+                    success = True
+                    break
+                except Exception as e:
+                    # 混雑エラーの場合は1秒待って再試行
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                    else:
+                        st.error(f"エラーが発生しました: {e}")
