@@ -95,9 +95,9 @@ if submit_button:
                 response_text = ""
                 for attempt in range(max_retries):
                     try:
-                        # モデル名を gemini-2.0-flash に更新
+                        # Google指定の最新モデル gemini-3.8-flash を指定
                         response = client.models.generate_content(
-                            model="gemini-2.0-flash",
+                            model="gemini-3.8-flash",
                             contents=contents,
                             config=config
                         )
