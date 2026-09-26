@@ -27,7 +27,7 @@ system_instruction = """
 """
 
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash-latest",
+    model_name="gemini-1.5-flash",
     system_instruction=system_instruction
 )
 
@@ -48,16 +48,21 @@ uploaded_file = st.file_uploader("📷 手書き作文の写真をアップロ�
 # 送信ボタン
 if st.button("AIコーチに送信する", type="primary"):
     if user_text:
+        # ユーザーの発言を履歴に追加
         st.session_state.messages.append({"role": "user", "content": user_text})
         
         with st.spinner("AIコーチが考え中..."):
-            if uploaded_file and len(st.session_state.messages) == 1:
-                image = Image.open(uploaded_file)
-                response = model.generate_content([user_text, image])
-            else:
-                response = model.generate_content([m["content"] for m in st.session_state.messages])
-            
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
+            try:
+                if uploaded_file:
+                    image = Image.open(uploaded_file)
+                    response = model.generate_content([user_text, image])
+                else:
+                    response = model.generate_content(user_text)
+                
+                # AIの返答を履歴に追加
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+            except Exception as e:
+                st.error(f"エラーが発生しました: {e}")
 
 # ----------------------------------------------------
 # 3. 会話の履歴表示（一番下に表示）
@@ -65,6 +70,6 @@ if st.button("AIコーチに送信する", type="primary"):
 if st.session_state.messages:
     st.write("---")
     st.subheader("🗣️ 会話の履歴")
-    for message in st.session_state.messages:
+    for message in reversed(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
