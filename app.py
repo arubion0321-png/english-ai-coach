@@ -1,5 +1,6 @@
 import streamlit as st
 from google import genai
+from google.genai import types
 
 # 画面設定
 st.set_page_config(page_title="英語スピーチ AIコーチ", page_icon="📝")
@@ -13,8 +14,8 @@ if not api_key:
     st.error("APIキー（GEMINI_API_KEY）がSecretsに設定されていません。")
     st.stop()
 
-# 新しいGeminiクライアントの初期化
-client = genai.Client(api_key=api_key)
+# 文字コードエラーを防ぐため文字列型を確実に指定してクライアント作成
+client = genai.Client(api_key=str(api_key).strip())
 
 system_instruction = """
 あなたは中学校の英語学習をサポートする優しく熱心なAIコーチです。
@@ -37,11 +38,15 @@ if submit_button:
     else:
         with st.spinner("AIコーチが回答を作成中...（数秒でお答えします）"):
             try:
-                # 高速・軽量モデルで生成
+                # 日本語（UTF-8）を安全に処理する設定を追加
+                config = types.GenerateContentConfig(
+                    system_instruction=system_instruction
+                )
+                
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
-                    contents=user_text,
-                    config={"system_instruction": system_instruction}
+                    contents=str(user_text),
+                    config=config
                 )
                 
                 st.success("AIコーチからのアドバイス：")
