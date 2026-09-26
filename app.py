@@ -7,13 +7,14 @@ st.set_page_config(page_title="英語スピーチ AIコーチ", page_icon="📝"
 st.title("📝 英語スピーチ AIコーチ")
 st.write("テーマの相談から英文のヒント添削まで、AIコーチと一緒にスピーチを作ろう！")
 
-# 安全な設定エリア（Secrets）からAPIキーを取得
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-except Exception:
-    st.error("APIキー（GEMINI_API_KEY）が Streamlit Cloud の Secrets に設定されていません。")
+# SecretsからAPIキーを取得
+api_key = st.secrets.get("GEMINI_API_KEY")
+
+if not api_key:
+    st.error("APIキー（GEMINI_API_KEY）が設定されていません。Streamlit CloudのSecretsを確認してください。")
     st.stop()
 
+# APIの設定
 genai.configure(api_key=api_key)
 
 system_instruction = """
@@ -26,37 +27,25 @@ system_instruction = """
 4. 中学2年生で習う文法知識を意識させつつ、1回の返答は簡潔にして会話を続けてください。
 """
 
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    system_instruction=system_instruction
-)
+# フォーム形式にして処理を安定化
+with st.form(key="speech_form"):
+    user_text = st.text_area("💬 質問や英文を入力してね", placeholder="ここにメッセージを入力...", height=120)
+    uploaded_file = st.file_uploader("📷 手書き作文の写真をアップロード（任意）", type=["jpg", "jpeg", "png"])
+    submit_button = st.form_submit_button("AIコーチに送信する", type="primary")
 
-# チャット履歴の初期化
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# ----------------------------------------------------
-# 1. 質問入力欄（上側）
-# ----------------------------------------------------
-user_text = st.text_area("💬 質問や英文を入力してね", placeholder="ここにメッセージを入力...", height=100)
-
-# ----------------------------------------------------
-# 2. 画像アップロード欄（下側）
-# ----------------------------------------------------
-uploaded_file = st.file_uploader("📷 手書き作文の写真をアップロード（任意）", type=["jpg", "jpeg", "png"])
-
-# 送信ボタン
-if st.button("AIコーチに送信する", type="primary"):
+# 送信ボタンが押された時の処理
+if submit_button:
     if not user_text and not uploaded_file:
-        st.warning("メッセージを入力するか、画像をアップロードしてください。")
+        st.warning("メッセージを入力するか、写真をアップロードしてください。")
     else:
-        # ユーザーメッセージの表示用テキスト
-        display_text = user_text if user_text else "(画像を送信しました)"
-        st.session_state.messages.append({"role": "user", "content": display_text})
-        
-        with st.spinner("AIコーチが考え中..."):
+        with st.spinner("AIコーチが回答を作成中...（数秒お待ちください）"):
             try:
-                # 入力コンテンツの整理
+                # 標準的なモデル名に指定
+                model = genai.GenerativeModel(
+                    model_name="gemini-1.5-flash-latest",
+                    system_instruction=system_instruction
+                )
+
                 contents = []
                 if user_text:
                     contents.append(user_text)
@@ -64,22 +53,12 @@ if st.button("AIコーチに送信する", type="primary"):
                     image = Image.open(uploaded_file)
                     contents.append(image)
                 
-                # Geminiへ送信
+                # AIからの返答を取得
                 response = model.generate_content(contents)
                 
-                # AIの返答を履歴に追加
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
-                st.rerun()
+                # 結果を表示
+                st.success("AIコーチからのアドバイス：")
+                st.markdown(response.text)
                 
             except Exception as e:
                 st.error(f"エラーが発生しました: {e}")
-
-# ----------------------------------------------------
-# 3. 会話の履歴表示（一番下に表示）
-# ----------------------------------------------------
-if st.session_state.messages:
-    st.write("---")
-    st.subheader("🗣️ 会話の履歴")
-    for message in reversed(st.session_state.messages):
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
