@@ -8,10 +8,10 @@ st.title("📝 英語スピーチ AIコーチ")
 st.write("テーマの相談から英文のヒント添削まで、AIコーチと一緒にスピーチを作ろう！")
 
 # 安全な設定エリア（Secrets）からAPIキーを取得
-api_key = st.secrets.get("GEMINI_API_KEY")
-
-if not api_key:
-    st.error("APIキーの設定が必要です。")
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    st.error("APIキー（GEMINI_API_KEY）が Streamlit Cloud の Secrets に設定されていません。")
     st.stop()
 
 genai.configure(api_key=api_key)
@@ -47,20 +47,30 @@ uploaded_file = st.file_uploader("📷 手書き作文の写真をアップロ�
 
 # 送信ボタン
 if st.button("AIコーチに送信する", type="primary"):
-    if user_text:
-        # ユーザーの発言を履歴に追加
-        st.session_state.messages.append({"role": "user", "content": user_text})
+    if not user_text and not uploaded_file:
+        st.warning("メッセージを入力するか、画像をアップロードしてください。")
+    else:
+        # ユーザーメッセージの表示用テキスト
+        display_text = user_text if user_text else "(画像を送信しました)"
+        st.session_state.messages.append({"role": "user", "content": display_text})
         
         with st.spinner("AIコーチが考え中..."):
             try:
+                # 入力コンテンツの整理
+                contents = []
+                if user_text:
+                    contents.append(user_text)
                 if uploaded_file:
                     image = Image.open(uploaded_file)
-                    response = model.generate_content([user_text, image])
-                else:
-                    response = model.generate_content(user_text)
+                    contents.append(image)
+                
+                # Geminiへ送信
+                response = model.generate_content(contents)
                 
                 # AIの返答を履歴に追加
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
+                st.rerun()
+                
             except Exception as e:
                 st.error(f"エラーが発生しました: {e}")
 
