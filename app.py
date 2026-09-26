@@ -35,64 +35,78 @@ system_instruction = """
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 1. 過去の会話履歴を上に表示
+# 1. これまでの会話履歴を表示
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 2. 下部に写真アップロードと入力欄を配置
-st.divider()  # 区切り線
-uploaded_file = st.file_uploader("📷 手書き作文の写真を添付（任意）", type=["jpg", "jpeg", "png"])
+st.divider()
 
-if user_input := st.chat_input("質問やメッセージを入力してね（例：パターン3で書いてみたい！）"):
-    # 写真がある場合の表示テキスト作成
-    display_text = user_input
-    if uploaded_file:
-        display_text = f"📷 [写真を添付しました]\n{user_input}"
-        
-    # ユーザーメッセージを表示・履歴追加
-    st.chat_message("user").markdown(display_text)
-    st.session_state.messages.append({"role": "user", "content": display_text})
-
-    # AIへの送信データ構築
-    contents = []
+# 2. 入力エリア（① 質問・メッセージ ➔ ② 写真ファイルの順）
+with st.container():
+    st.subheader("💬 AIコーチに相談・質問する")
+    user_text = st.text_area("メッセージを入力してね（例：パターン3で書いてみたい！）", height=100, key="input_text")
     
-    # 過去の文脈（履歴）を追加
-    for msg in st.session_state.messages[:-1]:
-        role = "user" if msg["role"] == "user" else "model"
-        contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]))
+    # 質問入力の「下」に写真アップロードを配置
+    uploaded_file = st.file_uploader("📷 手書き作文の写真を添削してもらう場合はこちら（任意）", type=["jpg", "jpeg", "png"])
+    
+    submit_button = st.button("AIコーチに送信する", type="primary")
 
-    # 今回の送信内容（テキスト + 画像があれば追加）
-    current_parts = [types.Part.from_text(text=user_input)]
-    if uploaded_file:
-        image = Image.open(uploaded_file)
-        current_parts.append(image)
-        
-    contents.append(types.Content(role="user", parts=current_parts))
-
-    # AIからの回答処理
-    with st.chat_message("assistant"):
-        with st.spinner("AIコーチが考えています..."):
-            config = types.GenerateContentConfig(
-                system_instruction=system_instruction
-            )
+# 送信ボタンが押された時の処理
+if submit_button:
+    if not user_text and not uploaded_file:
+        st.warning("メッセージを入力するか、写真を添付してください。")
+    else:
+        # 表示用のテキスト作成
+        display_text = user_text if user_text else "添付した写真を添削してください。"
+        if uploaded_file:
+            display_text = f"📷 [写真を添付しました]\n{display_text}"
             
-            max_retries = 3
-            response_text = ""
-            for attempt in range(max_retries):
-                try:
-                    response = client.models.generate_content(
-                        model="gemini-1.5-flash",
-                        contents=contents,
-                        config=config
-                    )
-                    response_text = response.text
-                    break
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        time.sleep(1)
-                    else:
-                        response_text = f"申し訳ありません、エラーが発生しました: {e}"
+        # ユーザーメッセージを画面表示＆履歴保存
+        st.chat_message("user").markdown(display_text)
+        st.session_state.messages.append({"role": "user", "content": display_text})
 
-            st.markdown(response_text)
-            st.session_state.messages.append({"role": "assistant", "content": response_text})
+        # Geminiへの送信内容構築
+        contents = []
+        for msg in st.session_state.messages[:-1]:
+            role = "user" if msg["role"] == "user" else "model"
+            contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]))
+
+        current_parts = []
+        if user_text:
+            current_parts.append(types.Part.from_text(text=user_text))
+        else:
+            current_parts.append(types.Part.from_text(text="添付した作文の写真を添削してください。"))
+            
+        if uploaded_file:
+            image = Image.open(uploaded_file)
+            current_parts.append(image)
+            
+        contents.append(types.Content(role="user", parts=current_parts))
+
+        # 回答生成処理
+        with st.chat_message("assistant"):
+            with st.spinner("AIコーチが考えています..."):
+                config = types.GenerateContentConfig(
+                    system_instruction=system_instruction
+                )
+                
+                max_retries = 3
+                response_text = ""
+                for attempt in range(max_retries):
+                    try:
+                        response = client.models.generate_content(
+                            model="gemini-1.5-flash",
+                            contents=contents,
+                            config=config
+                        )
+                        response_text = response.text
+                        break
+                    except Exception as e:
+                        if attempt < max_retries - 1:
+                            time.sleep(1)
+                        else:
+                            response_text = f"申し訳ありません、エラーが発生しました: {e}"
+
+                st.markdown(response_text)
+                st.session_state.messages.append({"role": "assistant", "content": response_text})
